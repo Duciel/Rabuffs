@@ -97,15 +97,21 @@ ptr:SetScript("OnUpdate", function()
 		end
 	end
 	if (this.timerNext ~= nil and this.timers ~= nil and this.timerNext < GetTime()) then
+		-- [OctoWoW] timerNext was never updated, so after the first timer fired this
+		-- loop ran on every single frame for the rest of the session.
 		local key, val, nt;
-		nt = GetTime() + 86400;
+		local now = GetTime();
+		nt = now + 86400;
 		for key, val in this.timers do
-			if (val.trigger < GetTime() and val.enabled) then
-				val.trigger = GetTime() + val.interval;
-				okay = val.func();
+			if (val.enabled) then
+				if (val.trigger < now) then
+					val.trigger = now + val.interval;
+					okay = val.func();
+				end
+				nt = min(nt, val.trigger);
 			end
-			nt = min(nt, val.trigger);
 		end
+		this.timerNext = nt;
 	end
 end);
 function RAB_Core_Register(event, key, func)
@@ -145,6 +151,8 @@ function RAB_Core_AddTimer(interval, key, func)
 		enabled = true,
 		func = func
 	});
+	-- [OctoWoW] make sure the scheduler wakes up for the new timer
+	RAB_CoreDummy.timerNext = min(RAB_CoreDummy.timerNext or (GetTime() + interval), GetTime() + interval);
 end
 
 function RAB_Core_RemoveTimer(id)
